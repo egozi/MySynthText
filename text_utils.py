@@ -80,12 +80,15 @@ class RenderFont(object):
         Also, outputs ground-truth bounding boxes and text string
     """
 
-    def __init__(self, data_dir='data'):
+    def __init__(self, data_dir='data', filename=None):
         # distribution over the type of text:
         # whether to get a single word, paragraph or a line:
-        self.p_text = {0.0 : 'WORD',
+        # self.p_text = {0.0 : 'WORD',
+        #                0.0 : 'LINE',
+        #                1.0 : 'PARA'}
+        self.p_text = {1.0 : 'WORD',
                        0.0 : 'LINE',
-                       1.0 : 'PARA'}
+                       0.0 : 'PARA'}
 
         ## TEXT PLACEMENT PARAMETERS:
         self.f_shrink = 0.90
@@ -93,8 +96,8 @@ class RenderFont(object):
         # the minimum number of characters that should fit in a mask
         # to define the maximum font height.
         self.min_nchar = 2
-        self.min_font_h = 16 #px : 0.6*12 ~ 7px <= actual minimum height
-        self.max_font_h = 120 #px
+        self.min_font_h = 20 # 30 # 16 #px : 0.6*12 ~ 7px <= actual minimum height
+        self.max_font_h = 100 # 120 #px
         self.p_flat = 0.10
 
         # curved baseline:
@@ -102,8 +105,12 @@ class RenderFont(object):
         self.baselinestate = BaselineState()
 
         # text-source : gets english text:
+        if True: #not filename:
+            filename = 'newsgroup/newsgroup.txt'
+
         self.text_source = TextSource(min_nchar=self.min_nchar,
-                                      fn=osp.join(data_dir,'newsgroup/newsgroup.txt'))
+                                    fn=osp.join(data_dir, filename))
+
 
         # get font-state object:
         self.font_state = FontState(data_dir)
@@ -266,8 +273,8 @@ class RenderFont(object):
         locs = [None for i in range(len(text_arrs))]
         out_arr = np.zeros_like(back_arr)
         for i in order:            
-            ba = np.clip(back_arr.copy().astype(np.float), 0, 255)
-            ta = np.clip(text_arrs[i].copy().astype(np.float), 0, 255)
+            ba = np.clip(back_arr.copy().astype(float), 0, 255)
+            ta = np.clip(text_arrs[i].copy().astype(float), 0, 255)
             ba[ba > 127] = 1e8
             intersect = ssig.fftconvolve(ba,ta[::-1,::-1],mode='valid')
             safemask = intersect < 1e8
@@ -397,20 +404,20 @@ class FontState(object):
     """
     Defines the random state of the font rendering  
     """
-    size = [50, 10]  # normal dist mean, std
-    underline = 0.05
-    strong = 0.5
-    oblique = 0.2
-    wide = 0.5
+    size = [70, 5]  # normal dist mean, std
+    underline = 0.0 # 0.05
+    strong = 0.0  #0.5
+    oblique = 1.0 # original - 0.2
+    wide = 0.0  # 0.5
     strength = [0.05, 0.1]  # uniform dist in this interval
     underline_adjustment = [1.0, 2.0]  # normal dist mean, std
     kerning = [2, 5, 0, 20]  # beta distribution alpha, beta, offset, range (mean is a/(a+b))
     border = 0.25
     random_caps = -1 ## don't recapitalize : retain the capitalization of the lexicon
     capsmode = [str.lower, str.upper, str.capitalize]  # lower case, upper case, proper noun
-    curved = 0.2
-    random_kerning = 0.2
-    random_kerning_amount = 0.1
+    curved = 0.0 #  0.2
+    random_kerning = 0.0 # 0.2
+    random_kerning_amount = 0.0 #  0.1
 
     def __init__(self, data_dir='data'):
 
@@ -432,7 +439,7 @@ class FontState(object):
             u.encoding = 'latin1'
             p = u.load()
             self.font_model = p
-            
+
         # get the names of fonts to use:
         self.FONT_LIST = osp.join(data_dir, 'fonts/fontlist.txt')
         self.fonts = [os.path.join(data_dir,'fonts',f.strip()) for f in open(self.FONT_LIST)]

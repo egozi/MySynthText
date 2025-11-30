@@ -23,6 +23,56 @@ from common import *
 import traceback, itertools
 
 
+import time
+
+# from https://github.com/PkuDavidGuan/CurvedSynthText
+def nice_homography(H):
+    def _homographyBB(bbs, H, offset=None):
+        """
+        Apply homography transform to bounding-boxes.
+        BBS: 2 x 4 x n matrix  (2 coordinates, 4 points, n bbs).
+        Returns the transformed 2x4xn bb-array.
+
+        offset : a 2-tuple (dx,dy), added to points before transfomation.
+        """
+        eps = 1e-16
+        # check the shape of the BB array:
+        t,f,n = bbs.shape
+        assert (t==2) and (f==4)
+
+        # append 1 for homogenous coordinates:
+        bbs_h = np.reshape(np.r_[bbs, np.ones((1,4,n))], (3,4*n), order='F')
+        if offset != None:
+            bbs_h[:2,:] += np.array(offset)[:,None]
+
+        # perpective:
+        bbs_h = H.dot(bbs_h)
+        bbs_h /= (bbs_h[2,:]+eps)
+
+        bbs_h = np.reshape(bbs_h, (3,4,n), order='F')
+        return bbs_h[:2,:,:]
+
+    # Construct a bb0 (2x4x1), and transform it to bb. Just check the points order of bb0 and bb.
+    wordBB0 = np.array([[1,10,10,1], [10,10,20,20]]).reshape((2,4,1))
+    wordBB = _homographyBB(wordBB0.copy(), H)
+    wordBB0 = wordBB0[:,:,0]
+    wordBB = wordBB[:,:,0]
+    vec00 = wordBB0[:,3] - wordBB0[:,0]
+    vec01 = wordBB0[:,2] - wordBB0[:,1]
+    vec02 = wordBB0[:,1] - wordBB0[:,0]
+    vec03 = wordBB0[:,2] - wordBB0[:,3]
+    vec10 = wordBB[:,3] - wordBB[:,0]
+    vec11 = wordBB[:,2] - wordBB[:,1]
+    vec12 = wordBB[:,1] - wordBB[:,0]
+    vec13 = wordBB[:,2] - wordBB[:,3]
+    # I just check the vectors of corresponding pairs whether have the same orientation.
+    if np.dot(vec00, vec10) < 0 or np.dot(vec01, vec11) < 0 or np.dot(vec02, vec12) < 0 or np.dot(vec03, vec13) < 0:
+        clockwise = False
+    else:
+        clockwise = True
+    return clockwise
+
+
 class TextRegions(object):
     """
     Get region from segmentation which are good for placing
@@ -219,6 +269,10 @@ def get_text_placement_mask(xyz,mask,plane,pad=2,viz=False):
     contour,hier = cv2.findContours(mask.copy().astype('uint8'),
                                     mode=cv2.RETR_CCOMP,
                                     method=cv2.CHAIN_APPROX_SIMPLE)[-2:]
+    # # from https://github.com/PkuDavidGuan/CurvedSynthText
+    # _, contour,hier = cv2.findContours(mask.copy().astype('uint8'),
+    #                                 mode=cv2.RETR_CCOMP,
+    #                                 method=cv2.CHAIN_APPROX_SIMPLE)
     contour = [np.squeeze(c).astype('float') for c in contour]
     #plane = np.array([plane[1],plane[0],plane[2],plane[3]])
     H,W = mask.shape[:2]
@@ -363,8 +417,8 @@ def viz_textbb(fignum,text_im, bb_list,alpha=1.0):
 
 class RendererV3(object):
 
-    def __init__(self, data_dir, max_time=None):
-        self.text_renderer = tu.RenderFont(data_dir)
+    def __init__(self, data_dir, max_time=None, filename=None):
+        self.text_renderer = tu.RenderFont(data_dir, filename)
         self.colorizer = Colorize(data_dir)
         #self.colorizerV2 = colorV2.Colorize(data_dir)
 
@@ -391,10 +445,17 @@ class RendererV3(object):
             res = get_text_placement_mask(xyz,seg==l,regions['coeff'][idx],pad=2)
             if res is not None:
                 mask,H,Hinv = res
-                masks.append(mask)
-                Hs.append(H)
-                Hinvs.append(Hinv)
-                filt[idx] = True
+                # from https://github.com/PkuDavidGuan/CurvedSynthText
+                # if error replace the commented code with the if ...
+                #masks.append(mask)
+                #Hs.append(H)
+                #Hinvs.append(Hinv)
+                #filt[idx] = True
+                if nice_homography(Hinv):
+                    masks.append(mask)
+                    Hs.append(H)
+                    Hinvs.append(Hinv)
+                    filt[idx] = True
         regions = self.filter_regions(regions,filt)
         regions['place_mask'] = masks
         regions['homography'] = Hs
@@ -468,7 +529,7 @@ class RendererV3(object):
         return is_good
 
 
-    def get_min_h(selg, bb, text):
+    def get_min_h(self, bb, text):
         # find min-height:
         h = np.linalg.norm(bb[:,3,:] - bb[:,0,:], axis=0)
         # remove newlines and spaces:
@@ -494,7 +555,9 @@ class RendererV3(object):
         return cv2.GaussianBlur(text_mask,(ksz,ksz),bsz)
 
     def place_text(self,rgb,collision_mask,H,Hinv):
+        # import ipdb; ipdb.set_trace(context=7) # BREAKPOINT
         font = self.text_renderer.font_state.sample()
+        print(font)
         font = self.text_renderer.font_state.init_font(font)
 
         render_res = self.text_renderer.render_sample(font,collision_mask)
@@ -502,6 +565,17 @@ class RendererV3(object):
             return #None
         else:
             text_mask,loc,bb,text = render_res
+
+        # from https://github.com/PkuDavidGuan/CurvedSynthText
+        wrds = text.split()
+        bb_idx = np.r_[0, np.cumsum([len(w) for w in wrds])]
+        for i in range(len(wrds)):
+            cc = bb[:,:,bb_idx[i]:bb_idx[i+1]]
+            cc = np.squeeze(np.concatenate(np.dsplit(cc,cc.shape[-1]),axis=1)).T.astype('float32')
+            rect = cv2.minAreaRect(cc.copy())
+            box = cv2.boxPoints(rect)
+            # print(box)
+            cv2.fillPoly(collision_mask, np.array([box], dtype=np.int32), 255)
 
         # update the collision mask with text:
         collision_mask += (255 * (text_mask>0)).astype('uint8')
@@ -524,7 +598,11 @@ class RendererV3(object):
 
         im_final = self.colorizer.color(rgb,[text_mask],np.array([min_h]))
 
-        return im_final, text, bb, collision_mask
+        # duplicate the labe for each word
+        nW = bb.shape[-1]
+        font_list = [font.name for _ in range(nW)]
+
+        return im_final, text, bb, collision_mask, font_list
 
 
     def get_num_text_regions(self, nregions):
@@ -536,7 +614,7 @@ class RendererV3(object):
             rnd = np.random.beta(5.0,1.0)
         return int(np.ceil(nmax * rnd))
 
-    def char2wordBB(self, charBB, text):
+    def char2wordBB(self, charBB, text, font_list):
         """
         Converts character bounding-boxes to word-level
         bounding-boxes.
@@ -641,6 +719,7 @@ class RendererV3(object):
             img = rgb.copy()
             itext = []
             ibb = []
+            ifont = []
 
             # process regions: 
             num_txt_regions = len(reg_idx)
@@ -668,19 +747,21 @@ class RendererV3(object):
 
                 if txt_render_res is not None:
                     placed = True
-                    img,text,bb,collision_mask = txt_render_res
+                    img, text, bb, collision_mask, font_name = txt_render_res
                     # update the region collision mask:
                     place_masks[ireg] = collision_mask
                     # store the result:
                     itext.append(text)
                     ibb.append(bb)
+                    ifont.append(font_name)
 
             if  placed:
                 # at least 1 word was placed in this instance:
                 idict['img'] = img
                 idict['txt'] = itext
                 idict['charBB'] = np.concatenate(ibb, axis=2)
-                idict['wordBB'] = self.char2wordBB(idict['charBB'].copy(), ' '.join(itext))
+                idict['wordBB'] = self.char2wordBB(idict['charBB'].copy(), ' '.join(itext), ifont)
+                idict['font'] = ifont
                 res.append(idict.copy())
                 if viz:
                     viz_textbb(1,img, [idict['wordBB']], alpha=1.0)

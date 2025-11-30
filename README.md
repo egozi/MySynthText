@@ -71,3 +71,18 @@ Note: I do not own the copyright to these images.
 
 ### Further Information
 Please refer to the paper for more information, or contact me (email address in the paper).
+
+### Docker
+A Dockerfile is provided to set up the environment easily. To build the docker image, run:
+
+```docker build -t synthtext-py36 .
+```
+To run the code inside a docker container, run:
+```xhost +local:docker
+```
+```docker run -it --rm  -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix -v /home/amir/source/MySynthText:/workspace  synthtext-py36
+```
+This will start a bash shell inside the container. You can then run the code as usual, e.g.:
+
+```python gen.py --viz```
+
