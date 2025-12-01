@@ -33,14 +33,25 @@ def get_font_name_from_ttf(font_path):
         for record in font['name'].names:
             # Family name is typically name ID 1
             if record.nameID == 1:
-                # Decode the name
+                # Use fontTools' built-in toUnicode method for proper decoding
+                try:
+                    font_name = record.toUnicode()
+                    if font_name:
+                        return font_name
+                except:
+                    pass
+
+                # Fallback: try to decode the raw string
                 if isinstance(record.string, bytes):
                     try:
-                        return record.string.decode('utf-16-be')
+                        return record.string.decode('utf-16-be').strip()
                     except:
-                        return record.string.decode('utf-8', errors='ignore')
+                        try:
+                            return record.string.decode('utf-8', errors='ignore').strip()
+                        except:
+                            pass
                 else:
-                    return record.string
+                    return str(record.string).strip()
 
         return None
     except Exception as e:
