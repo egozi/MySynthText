@@ -70,6 +70,8 @@ def add_res_to_db(imgname,res,db):
     Add the synthetically generated text image instance
     and other metadata to the dataset.
     """
+    dt = h5py.special_dtype(vlen=str)    # old h5py way
+
     ninstance = len(res)
     for i in range(ninstance):
         dname = "%s_%d"%(imgname, i)
@@ -78,14 +80,22 @@ def add_res_to_db(imgname,res,db):
         db['data'][dname].attrs['wordBB'] = res[i]['wordBB']                
         #db['data'][dname].attrs['txt'] = res[i]['txt']
         L = res[i]['txt']
-        L = [n.encode("ascii", "ignore") for n in L]
-        db['data'][dname].attrs['txt'] = L
+        # L = [n.encode("ascii", "ignore") for n in L]
+        db['data'][dname].attrs['txt'] = np.array(L, dtype=dt)
 
         # add the fonts
         F = res[i]['font']
         F = [j for sub in F for j in sub]
-        F = [n.encode("ascii", "ignore") for n in F]
-        db['data'][dname].attrs['font'] = F
+        # original:
+        # F = [n.encode("ascii", "ignore") for n in F]
+        # db['data'][dname].attrs['font'] = F
+        
+        # Claude version:
+        # F = [n.encode("utf-8") for n in [j for sub in res[i]['font'] for j in sub]]
+        # db['data'][dname].attrs['font'] = np.array(F, dtype='U16')
+        
+        F = [j for sub in res[i]['font'] for j in sub]
+        db['data'][dname].attrs['font'] = np.array(F, dtype=dt)
 
 
 def main(viz=False):
