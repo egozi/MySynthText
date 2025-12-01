@@ -54,7 +54,10 @@ RUN git checkout python3
 #    - matplotlib 3.3.2 (matches your original; Py3.6 OK)
 #    - h5py 2.10.0, Pillow 7.2.0, reportlab 3.4.0 (Py3.6 era)
 # ----------------------------------------------------------------------
-RUN pip install --no-cache-dir -r requirements.txt 
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install fontTools for font metadata extraction
+RUN pip install --no-cache-dir fonttools==4.27.1
 
 # # Optional: quick sanity check (can be removed to speed builds)
 # RUN python - << 'EOF'
