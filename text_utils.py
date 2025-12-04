@@ -477,6 +477,42 @@ class FontState(object):
         m = self.font_model[font.name]
         return m[0]*font_size_px + m[1] #linear model
 
+    def sample_font_weighted(self, high_prob_indices=[0, 1], high_probs=[0.4, 0.3]):
+        """
+        Sample a font with custom distribution.
+        
+        Args:
+          high_prob_indices: List of indices with higher probability
+          high_probs: List of probabilities for each high-prob font (must match length of high_prob_indices)
+        """
+        n_fonts = len(self.fonts)
+        n_high = len(high_prob_indices)
+        
+        # Validate inputs
+        if len(high_probs) != n_high:
+          raise ValueError("high_probs must have same length as high_prob_indices")
+        
+        # Calculate remaining probability
+        remaining_prob = 1.0 - sum(high_probs)
+        n_remaining = n_fonts - n_high
+        
+        # Base probability for other fonts
+        base_prob = remaining_prob / n_remaining if n_remaining > 0 else 0
+        
+        # Create probability array
+        probs = np.ones(n_fonts) * base_prob
+        
+        # Set custom high probabilities
+        for idx, prob in zip(high_prob_indices, high_probs):
+          probs[idx] = prob
+        
+        # Normalize to ensure sum = 1.0
+        probs = probs / np.sum(probs)
+        
+        # Sample one font
+        font_idx = np.random.choice(n_fonts, p=probs)
+        return self.fonts[font_idx]
+        
 
     def sample(self):
         """
@@ -491,7 +527,8 @@ class FontState(object):
 
         return {
             # 'font': self.fonts[font_idx],   # self.fonts[int(np.random.randint(0, len(self.fonts)))],
-            'font': self.fonts[int(np.random.randint(0, len(self.fonts)))],
+            # 'font': self.fonts[int(np.random.randint(0, len(self.fonts)))],
+            'font': self.sample_font_weighted(high_prob_indices=[2, 5], high_probs=[0.3, 0.2]),
             'size': self.size[1]*np.random.randn() + self.size[0],
             'underline': np.random.rand() < self.underline,
             'underline_adjustment': max(2.0, min(-2.0, self.underline_adjustment[1]*np.random.randn() + self.underline_adjustment[0])),

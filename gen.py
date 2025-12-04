@@ -162,6 +162,7 @@ def main(viz=False, n_img=-1):
     else:
         num_img = N
     start_idx, end_idx = 0,min(num_img, N)
+    print (colorize(Color.GREEN,'Generating ' + str(num_img) + ' images:', bold=True))
 
     RV3 = RendererV3(DATA_PATH,max_time=SECS_PER_IMG, filename=text_file_name)
 
