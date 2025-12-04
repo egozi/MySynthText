@@ -91,3 +91,6 @@ ENV/
 
 # Data folder
 data/
+
+# results folder
+results/

@@ -24,7 +24,7 @@ import random
 
 
 ## Define some configuration variables:
-NUM_IMG = -1 # no. of images to use for generation (-1 to use all available):
+# NUM_IMG = -1 # no. of images to use for generation (-1 to use all available):
 INSTANCE_PER_IMAGE = 1 # no. of times to use the same image
 # SECS_PER_IMG = 5 #max time per image in seconds
 SECS_PER_IMG = None  # DEBUG 5 #max time per image in seconds
@@ -111,7 +111,7 @@ def add_res_to_db(imgname,res,db):
         db['data'][dname].attrs['word_font'] = np.array(word_fonts, dtype=dt)
 
 
-def main(viz=False):
+def main(viz=False, n_img=-1):
     # open databases:
     print (colorize(Color.BLUE,'getting data..',bold=True))
     db = get_data()
@@ -139,7 +139,6 @@ def main(viz=False):
     # imnames = sorted(db['image'].keys())
     imnames = sorted(depth_db.keys())
 
-
     # =========================================================================== 
     # sample for train and test sets
     random.seed(42)
@@ -154,14 +153,15 @@ def main(viz=False):
     imnames = im_sample
 
     N = len(imnames)
-    N = 5 ## DEBUG
+    # N = 5 ## DEBUG
     print (colorize(Color.GREEN,'Number of possible images: ' + str(N), bold=True))
     # =========================================================================== 
 
-    global NUM_IMG
-    if NUM_IMG < 0:
-        NUM_IMG = N
-    start_idx,end_idx = 0,min(NUM_IMG, N)
+    if n_img > 0:
+        num_img = n_img
+    else:
+        num_img = N
+    start_idx, end_idx = 0,min(num_img, N)
 
     RV3 = RendererV3(DATA_PATH,max_time=SECS_PER_IMG, filename=text_file_name)
 
@@ -263,5 +263,6 @@ if __name__=='__main__':
     import argparse
     parser = argparse.ArgumentParser(description='Genereate Synthetic Scene-Text Images')
     parser.add_argument('--viz',action='store_true',dest='viz',default=False,help='flag for turning on visualizations')
+    parser.add_argument('--num-images',type=int,dest='num_images',default=-1,help='number of images to process (-1 to use all available, default: -1)')
     args = parser.parse_args()
-    main(args.viz)
+    main(args.viz, args.num_images)
