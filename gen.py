@@ -83,26 +83,37 @@ def add_res_to_db(imgname,res,db):
         # L = [n.encode("ascii", "ignore") for n in L]
         db['data'][dname].attrs['txt'] = np.array(L, dtype=dt)
 
-        # add the fonts
+        # add the fonts (per character)
         F = res[i]['font']
         F = [j for sub in F for j in sub]
         # original:
         # F = [n.encode("ascii", "ignore") for n in F]
         # db['data'][dname].attrs['font'] = F
-        
+
         # Claude version:
         # F = [n.encode("utf-8") for n in [j for sub in res[i]['font'] for j in sub]]
         # db['data'][dname].attrs['font'] = np.array(F, dtype='U16')
-        
+
         F = [j for sub in res[i]['font'] for j in sub]
         db['data'][dname].attrs['font'] = np.array(F, dtype=dt)
+
+        # add word-level fonts (one font per word)
+        # Since each word is rendered with a single font, take the first character's font of each word
+        txt = res[i]['txt']
+        word_fonts = []
+        char_idx = 0
+        for word in txt:
+            # Get font for first character of this word
+            word_fonts.append(F[char_idx])
+            # Move char_idx to the next word
+            char_idx += len(word)
+        db['data'][dname].attrs['word_font'] = np.array(word_fonts, dtype=dt)
 
 
 def main(viz=False):
     # open databases:
     print (colorize(Color.BLUE,'getting data..',bold=True))
     db = get_data()
-    import ipdb; ipdb.set_trace(context=7) # BREAKPOINT
 
     # ===========================================================================
     # get the images + segmentations + depth images
@@ -114,7 +125,7 @@ def main(viz=False):
     seg_h5 = h5py.File(seg_file, 'r')
     seg_db = seg_h5['mask']
 
-    text_file_name = "text/text_data.txt" 
+    text_file_name = "text/text_data_clean.txt" 
     # =========================================================================== 
     print (colorize(Color.BLUE,'\t-> done',bold=True))
 
@@ -146,6 +157,19 @@ def main(viz=False):
     start_idx,end_idx = 0,min(NUM_IMG, N)
 
     RV3 = RendererV3(DATA_PATH,max_time=SECS_PER_IMG, filename=text_file_name)
+
+    # Improve text clarity and separation
+    font_state = RV3.text_renderer.font_state
+    font_state.strong = 0.0  # Bold text
+    font_state.strength = [0.10, 0.50]  # Thick outlines
+    font_state.kerning = [2, 5, 0, 50]  # Large character spacing
+    font_state.border = 0.7  # Always apply border
+    font_state.curved = 0.0  # Straight baselines
+    font_state.oblique = 0.0  # No italic
+
+    # Disable curved baselines
+    RV3.text_renderer.p_curved = 0.0
+
     for i in range(start_idx,end_idx):
         imname = imnames[i]
         try:

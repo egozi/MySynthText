@@ -105,7 +105,7 @@ class RenderFont(object):
         self.baselinestate = BaselineState()
 
         # text-source : gets english text:
-        if True: #not filename:
+        if not filename:
             filename = 'newsgroup/newsgroup.txt'
 
         self.text_source = TextSource(min_nchar=self.min_nchar,
@@ -482,7 +482,15 @@ class FontState(object):
         """
         Samples from the font state distribution
         """
+        # Define probabilities for each font (must sum to 1.0)
+        # font_probs = [1.0, 0.0, 0.0, 0.0]  # Example: 50%, 30%, 20%
+        # font_idx = np.random.choice(len(self.fonts), p=font_probs)
+        # 'font': self.fonts[font_idx],
+
+        # import ipdb; ipdb.set_trace(context=7) # BREAKPOINT
+
         return {
+            # 'font': self.fonts[font_idx],   # self.fonts[int(np.random.randint(0, len(self.fonts)))],
             'font': self.fonts[int(np.random.randint(0, len(self.fonts)))],
             'size': self.size[1]*np.random.randn() + self.size[0],
             'underline': np.random.rand() < self.underline,

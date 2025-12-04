@@ -1,0 +1,103 @@
+.PHONY: help build run run-shell clean docker-clean
+
+# Configuration
+IMAGE_NAME := synthtext
+IMAGE_TAG := latest
+DATA_PATH ?= $(PWD)/data
+RESULTS_PATH ?= $(PWD)/results
+CONTAINER_WORKDIR := /opt/app/MySynthText
+
+help:
+	@echo "MySynthText Docker Makefile"
+	@echo "============================"
+	@echo ""
+	@echo "Available commands:"
+	@echo ""
+	@echo "  make build              Build the Docker image"
+	@echo "  make run                Run the container with gen.py"
+	@echo "  make run-shell          Run the container with interactive shell"
+	@echo "  make run-jupyter        Run the container with Jupyter notebook"
+	@echo "  make clean              Stop and remove running container"
+	@echo "  make docker-clean       Remove Docker image"
+	@echo ""
+	@echo "Configuration (use with environment variables):"
+	@echo "  DATA_PATH               Path to data folder (default: $(DATA_PATH))"
+	@echo "  RESULTS_PATH            Path to results folder (default: $(RESULTS_PATH))"
+	@echo ""
+	@echo "Examples:"
+	@echo "  make build"
+	@echo "  make run DATA_PATH=/custom/data RESULTS_PATH=/custom/results"
+	@echo "  make run-shell"
+	@echo "  make run-jupyter"
+
+build:
+	@echo "Building Docker image: $(IMAGE_NAME):$(IMAGE_TAG)"
+	docker build -t $(IMAGE_NAME):$(IMAGE_TAG) .
+	@echo "Build complete!"
+
+run: build
+	@echo "Running gen.py with:"
+	@echo "  Data folder: $(DATA_PATH)"
+	@echo "  Results folder: $(RESULTS_PATH)"
+	@echo ""
+	docker run --rm \
+		-v "$(DATA_PATH):$(CONTAINER_WORKDIR)/data" \
+		-v "$(RESULTS_PATH):$(CONTAINER_WORKDIR)/results" \
+		$(IMAGE_NAME):$(IMAGE_TAG) \
+		python gen.py
+
+run-shell: build
+	@echo "Running interactive shell with:"
+	@echo "  Data folder: $(DATA_PATH)"
+	@echo "  Results folder: $(RESULTS_PATH)"
+	@echo ""
+	docker run -it --rm \
+		-v "$(DATA_PATH):$(CONTAINER_WORKDIR)/data" \
+		-v "$(RESULTS_PATH):$(CONTAINER_WORKDIR)/results" \
+		$(IMAGE_NAME):$(IMAGE_TAG) \
+		bash
+
+run-jupyter: build
+	@echo "Running Jupyter notebook with:"
+	@echo "  Data folder: $(DATA_PATH)"
+	@echo "  Results folder: $(RESULTS_PATH)"
+	@echo ""
+	@echo "Jupyter will be available at http://localhost:8888"
+	@echo ""
+	docker run -it --rm \
+		-p 8888:8888 \
+		-v "$(DATA_PATH):$(CONTAINER_WORKDIR)/data" \
+		-v "$(RESULTS_PATH):$(CONTAINER_WORKDIR)/results" \
+		$(IMAGE_NAME):$(IMAGE_TAG) \
+		bash -c "pip install jupyter && jupyter notebook --ip=0.0.0.0 --no-browser --allow-root"
+
+clean:
+	@echo "Stopping and removing containers..."
+	docker ps -a | grep $(IMAGE_NAME) | awk '{print $$1}' | xargs -r docker rm -f
+	@echo "Clean complete!"
+
+docker-clean: clean
+	@echo "Removing Docker image: $(IMAGE_NAME):$(IMAGE_TAG)"
+	docker rmi -f $(IMAGE_NAME):$(IMAGE_TAG)
+	@echo "Docker clean complete!"
+
+# Development helpers
+logs:
+	docker logs -f $$(docker ps -q --filter "ancestor=$(IMAGE_NAME):$(IMAGE_TAG)")
+
+ps:
+	@echo "Running containers:"
+	docker ps --filter "ancestor=$(IMAGE_NAME):$(IMAGE_TAG)"
+
+inspect:
+	@echo "Image details for $(IMAGE_NAME):$(IMAGE_TAG)"
+	docker inspect $(IMAGE_NAME):$(IMAGE_TAG)
+
+# Advanced usage examples
+example-run:
+	@echo "Example: Running with custom data folder"
+	@echo "make run DATA_PATH=/home/user/my_data RESULTS_PATH=/home/user/my_results"
+
+example-shell:
+	@echo "Example: Running shell with custom paths"
+	@echo "make run-shell DATA_PATH=/home/user/my_data RESULTS_PATH=/home/user/my_results"
