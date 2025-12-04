@@ -155,7 +155,7 @@ def main(viz=False):
 
     N = len(imnames)
     N = 5 ## DEBUG
-    print (colorize(Color.GREEN,'Number of possible images: ' + N, bold=True))
+    print (colorize(Color.GREEN,'Number of possible images: ' + str(N), bold=True))
     # =========================================================================== 
 
     global NUM_IMG
