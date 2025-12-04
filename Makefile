@@ -1,4 +1,4 @@
-.PHONY: help build run run-shell clean docker-clean
+.PHONY: help build build-nocache run run-shell run-jupyter clean docker-clean logs ps inspect example-run example-shell
 
 # Configuration
 IMAGE_NAME := synthtext
@@ -13,7 +13,8 @@ help:
 	@echo ""
 	@echo "Available commands:"
 	@echo ""
-	@echo "  make build              Build the Docker image"
+	@echo "  make build              Build the Docker image (no cache)"
+	@echo "  make build-nocache      Build the Docker image without using cache"
 	@echo "  make run                Run the container with gen.py"
 	@echo "  make run-shell          Run the container with interactive shell"
 	@echo "  make run-jupyter        Run the container with Jupyter notebook"
@@ -31,41 +32,61 @@ help:
 	@echo "  make run-jupyter"
 
 build:
-	@echo "Building Docker image: $(IMAGE_NAME):$(IMAGE_TAG)"
-	docker build -t $(IMAGE_NAME):$(IMAGE_TAG) .
+	@echo "Building Docker image: $(IMAGE_NAME):$(IMAGE_TAG) (without cache)"
+	docker build --no-cache -t $(IMAGE_NAME):$(IMAGE_TAG) .
 	@echo "Build complete!"
 
-run: build
+build-nocache:
+	@echo "Building Docker image: $(IMAGE_NAME):$(IMAGE_TAG) (without cache)"
+	docker build --no-cache -t $(IMAGE_NAME):$(IMAGE_TAG) .
+	@echo "Build complete!"
+
+run:
 	@echo "Running gen.py with:"
 	@echo "  Data folder: $(DATA_PATH)"
 	@echo "  Results folder: $(RESULTS_PATH)"
 	@echo ""
+	@echo "Enabling X11 forwarding for plotting..."
+	@xhost +local:docker > /dev/null 2>&1 || true
+	@echo ""
 	docker run --rm \
+		-e DISPLAY=$(DISPLAY) \
+		-v /tmp/.X11-unix:/tmp/.X11-unix \
 		-v "$(DATA_PATH):$(CONTAINER_WORKDIR)/data" \
 		-v "$(RESULTS_PATH):$(CONTAINER_WORKDIR)/results" \
 		$(IMAGE_NAME):$(IMAGE_TAG) \
 		python gen.py
 
-run-shell: build
+run-shell:
 	@echo "Running interactive shell with:"
 	@echo "  Data folder: $(DATA_PATH)"
 	@echo "  Results folder: $(RESULTS_PATH)"
 	@echo ""
+	@echo "Enabling X11 forwarding for plotting..."
+	@xhost +local:docker > /dev/null 2>&1 || true
+	@echo ""
 	docker run -it --rm \
+		-e DISPLAY=$(DISPLAY) \
+		-v /tmp/.X11-unix:/tmp/.X11-unix \
 		-v "$(DATA_PATH):$(CONTAINER_WORKDIR)/data" \
 		-v "$(RESULTS_PATH):$(CONTAINER_WORKDIR)/results" \
 		$(IMAGE_NAME):$(IMAGE_TAG) \
 		bash
 
-run-jupyter: build
+run-jupyter:
 	@echo "Running Jupyter notebook with:"
 	@echo "  Data folder: $(DATA_PATH)"
 	@echo "  Results folder: $(RESULTS_PATH)"
 	@echo ""
 	@echo "Jupyter will be available at http://localhost:8888"
 	@echo ""
+	@echo "Enabling X11 forwarding for plotting..."
+	@xhost +local:docker > /dev/null 2>&1 || true
+	@echo ""
 	docker run -it --rm \
 		-p 8888:8888 \
+		-e DISPLAY=$(DISPLAY) \
+		-v /tmp/.X11-unix:/tmp/.X11-unix \
 		-v "$(DATA_PATH):$(CONTAINER_WORKDIR)/data" \
 		-v "$(RESULTS_PATH):$(CONTAINER_WORKDIR)/results" \
 		$(IMAGE_NAME):$(IMAGE_TAG) \

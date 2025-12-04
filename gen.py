@@ -37,6 +37,7 @@ DB_FNAME = osp.join(DATA_PATH,'dset.h5')
 DATA_URL = 'http://www.robots.ox.ac.uk/~ankush/data.tar.gz'
 OUT_FILE = 'results/SynthText_val.h5'
 OUT_FILE = 'results/SynthText_test.h5'
+OUT_FILE = 'results/SynthText.h5'
 OUT_PATH = 'results/images/'
 
 def get_data():
@@ -138,19 +139,25 @@ def main(viz=False):
     # imnames = sorted(db['image'].keys())
     imnames = sorted(depth_db.keys())
 
+
+    # =========================================================================== 
     # sample for train and test sets
     random.seed(42)
     im_sample = random.sample(imnames, 5000)
-    train_im = im_sample[:1200]
-    test_im = im_sample[1200:3000]
-    test_im = im_sample[3000:5000]
+    # train_im = im_sample[:1200]
+    # test_im = im_sample[1200:3000]
+    # test_im = im_sample[3000:5000]
 
     # for train set 
-    imnames = train_im
-    imnames = test_im
+    # imnames = train_im
+    # imnames = test_im
+    imnames = im_sample
 
     N = len(imnames)
-    N = 3 ## DEBUG
+    N = 5 ## DEBUG
+    print (colorize(Color.GREEN,'Number of possible images: ' + N, bold=True))
+    # =========================================================================== 
+
     global NUM_IMG
     if NUM_IMG < 0:
         NUM_IMG = N
